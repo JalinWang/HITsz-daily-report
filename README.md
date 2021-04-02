@@ -13,3 +13,12 @@
 消息推送Key申请地址：[Server酱](http://sc.ftqq.com/)
 
 ![添加Action Secret的步骤](./image/instruction.png)
+
+**Fork 仓库后，GitHub 默认不自动执行 Actions 任务，请修改 `.github/trigger.json` 文件,将 `trigger` 的值改为 `1`，这样每天就会自动执行定时任务了。**
+
+```patch
+{
+- "trigger": 0
++ "trigger": 1
+}
+```
