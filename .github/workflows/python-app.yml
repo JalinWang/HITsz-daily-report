@@ -4,6 +4,7 @@
 name: Python application
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '0 23 * * *'
 
@@ -32,4 +33,4 @@ jobs:
         PASSWORD: ${{ secrets.password }}
         API_KEY: ${{ secrets.api_key }}
       run: |
-        python report.py "$USERNAME" "$PASSWORD" -d "$API_KEY"
+        python report.py "$USERNAME" "$PASSWORD" -k "$API_KEY"
