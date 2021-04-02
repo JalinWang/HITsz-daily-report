@@ -6,10 +6,13 @@ from lxml import etree
 import json
 import random
 import datetime
+import argparse
 
+parser = argparse.ArgumentParser(description='HITsz疫情上报')
+parser.add_argument('username', help='HITsz SSO登录用户名（学号）')
+parser.add_argument('password', help='HITsz SSO登录密码')
+parser.add_argument('-k', '--api_key', help='Server酱的SCKEY')
 
-username = ''
-password = ''
 
 
 def print_log(msg: str) -> None:
@@ -47,7 +50,7 @@ def get_report_info(session: requests.Session, module_id: str) -> dict:
     return report_info
 
 
-def main():
+def main(args):
     session = requests.session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'
@@ -66,8 +69,8 @@ def main():
         'lt': lt,
         'execution': execution,
         '_eventId': eventId,
-        'username': username,
-        'password': password
+        'username': args.username,
+        'password': args.password
     }
     jsessionid = dict_from_cookiejar(response.cookies)['JSESSIONID']
 
@@ -111,27 +114,33 @@ def main():
         print_log(f'POST {check_url} {response.status_code}')
         today_report = response.json()['module']['data'][0]
         # print(today_report)
+
+        msg = ""
         if today_report['sfkxg'] == '1':
-            print_log(result['msg'])
-            exit()
+            msg = result['msg']
         elif today_report['zt'] == '00':
-            print_log('上报信息已存在，尚未提交')
+            msg = '上报信息已存在，尚未提交'
         elif today_report['zt'] == '01':
-            print_log('上报信息待审核，可修改')
+            msg = '上报信息待审核，可修改'
+        return False, msg
 
     report_info = get_report_info(session, result['module'])
     save_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx'
     response = session.post(save_url, params=report_info)
     print_log(f'POST {save_url} {response.status_code}')
 
-    if response.json()['isSuccess']:
-        print_log('提交成功')
-    else:
-        print_log('提交失败')
+    res_msg = '提交成功' if response.json()['isSuccess'] else '提交失败'
+    return  response.json()['isSuccess'], res_msg
 
 
 if __name__ == '__main__':
-    if username == '' or password == '':
-        print_log('请填写账号密码')
-    else:
-        main()
+    args = parser.parse_args()
+    is_successful, msg = main(args)
+    print_log(msg)
+    if args.api_key:
+        txt = ""
+        if is_successful:
+            txt = f"疫情上报成功！{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
+        else:
+            txt = f"疫情上报失败，原因：{msg}{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
+        requests.get(f"https://sc.ftqq.com/{args.api_key}.send?text={txt}")
