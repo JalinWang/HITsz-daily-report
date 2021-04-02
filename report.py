@@ -9,10 +9,9 @@ import datetime
 import argparse
 
 parser = argparse.ArgumentParser(description='HITsz疫情上报')
-parser.add_argument('username', help='HITsz SSO登录用户名（学号）')
-parser.add_argument('password', help='HITsz SSO登录密码')
+parser.add_argument('username', help='HITsz SSO登录用户名（学号）', required=True)
+parser.add_argument('password', help='HITsz SSO登录密码', required=True)
 parser.add_argument('-k', '--api_key', help='Server酱的SCKEY')
-
 
 
 def print_log(msg: str) -> None:
