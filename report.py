@@ -117,11 +117,12 @@ def main(args):
         msg = ""
         if today_report['sfkxg'] == '1':
             msg = result['msg']
+            return False, msg
         elif today_report['zt'] == '00':
             msg = '上报信息已存在，尚未提交'
         elif today_report['zt'] == '01':
-            msg = '上报信息待审核，可修改'
-        return False, msg
+            msg = '上报信息已提交，待审核'
+            return False, msg
 
     report_info = get_report_info(session, result['module'])
     save_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx'
