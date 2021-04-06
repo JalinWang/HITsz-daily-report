@@ -9,8 +9,8 @@ import datetime
 import argparse
 
 parser = argparse.ArgumentParser(description='HITsz疫情上报')
-parser.add_argument('username', help='HITsz SSO登录用户名（学号）', required=True)
-parser.add_argument('password', help='HITsz SSO登录密码', required=True)
+parser.add_argument('username', help='HITsz SSO登录用户名（学号）')
+parser.add_argument('password', help='HITsz SSO登录密码')
 parser.add_argument('-k', '--api_key', help='Server酱的SCKEY')
 
 
@@ -80,10 +80,10 @@ def main(args):
     if response.status_code == 200:
         # 登录失败，输出错误信息
         msg = etree.HTML(response.text).xpath('//div[@id="msg"]/text()')[0]
-        print_log(msg)
+        return False, msg
     elif response.status_code != 302:
-        print_log('其他错误')
-        exit()
+        msg = '其他错误'
+        return False, msg
 
     print_log('登录成功')
 
@@ -92,7 +92,7 @@ def main(args):
     response = session.get(next_url)
     print_log(f'GET {next_url} {response.status_code}')
 
-    # 获取学号
+    # 获取学号，此部分非必要
     stu_id_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xsHome/getGrxx'
     response = session.post(stu_id_url)
     print_log(f'POST {stu_id_url} {response.status_code}')
@@ -115,13 +115,13 @@ def main(args):
         # print(today_report)
 
         msg = ""
-        if today_report['sfkxg'] == '1':
-            msg = result['msg']
-            return False, msg
-        elif today_report['zt'] == '00':
+        if today_report['zt'] == '00':
             msg = '上报信息已存在，尚未提交'
         elif today_report['zt'] == '01':
             msg = '上报信息已提交，待审核'
+            return False, msg
+        elif today_report['zt'] == '02':
+            msg = '上报信息已审核，无需重复提交'
             return False, msg
 
     report_info = get_report_info(session, result['module'])
