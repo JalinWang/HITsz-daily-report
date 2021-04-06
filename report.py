@@ -51,7 +51,7 @@ def get_report_info(session: requests.Session, module_id: str, graduating: str =
     return report_info
 
 
-def main(args):
+def main(args) -> (str, bool):
     session = requests.session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'
@@ -117,13 +117,13 @@ def main(args):
         logging.debug(today_report)
 
         if today_report['zt'] == '00':
-            err = '上报信息已存在，尚未提交'
+            err_msg = '上报信息已存在，尚未提交'
         elif today_report['zt'] == '01':
-            err = '上报信息已提交，待审核'
-            return False, err
+            err_msg = '上报信息已提交，待审核'
+            return err_msg, False
         elif today_report['zt'] == '02':
-            err = '上报信息已审核，无需重复提交'
-            return False, err
+            err_msg = '上报信息已审核，无需重复提交'
+            return err_msg, False
 
     report_info = get_report_info(session, result['module'], args.graduating)
     save_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx'
@@ -131,22 +131,25 @@ def main(args):
     logging.info(f'POST {save_url} {response.status_code}')
 
     res_msg = '提交成功' if response.json()['isSuccess'] else '提交失败'
-    return response.json()['isSuccess'], res_msg
+    return res_msg, response.json()['isSuccess']
 
 
 if __name__ == '__main__':
     arguments = parser.parse_args()
+    current = datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')
 
     try:
-        is_successful, msg = main(arguments)
+        msg, ok = main(arguments)
     except LoginException as e:
         logging.critical(e)
+        wx_msg = f"登陆失败！{current}"
     else:
-        if is_successful:
+        if ok:
             logging.warning(msg)
-            txt = f"疫情上报成功！{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
+            wx_msg = f"疫情上报成功。{current}"
         else:
             logging.error(msg)
-            txt = f"疫情上报失败，原因：{msg}。{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
-        if arguments.api_key:
-            requests.get(f"https://sc.ftqq.com/{arguments.api_key}.send?text={txt}")
+            wx_msg = f"疫情上报失败，原因：{msg}。{current}"
+
+    if arguments.api_key:
+        requests.get(f"https://sc.ftqq.com/{arguments.api_key}.send?text={wx_msg}")
