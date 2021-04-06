@@ -16,11 +16,15 @@ logging.basicConfig(level=logging.INFO, format=log_format)
 parser = argparse.ArgumentParser(description='HITsz疫情上报')
 parser.add_argument('username', help='用户名')
 parser.add_argument('password', help='密码')
-parser.add_argument('graduating', help='是否毕业生班')
+parser.add_argument('graduating', help='毕业班')
 parser.add_argument('-k', '--api_key', help='SCKEY')
 
 
-def get_report_info(session: requests.Session, module_id: str) -> dict:
+class LoginException(Exception):
+    pass
+
+
+def get_report_info(session: requests.Session, module_id: str, graduating: str = '0') -> dict:
     # 获取每日上报信息的模板
     logging.info('获取上报信息模板')
     params = {'info': json.dumps({'id': module_id})}
@@ -36,8 +40,8 @@ def get_report_info(session: requests.Session, module_id: str) -> dict:
 
     model = {key: origin_data[key] for key in key_list}
     model['id'] = module_id
-    model['sffwwhhb'] = args.graduating if args.graduating else '0'  # 是否毕业生班
-    temperature = format(random.uniform(361, 368) / 10, '.1f')       # 随机生成体温
+    model['sffwwhhb'] = graduating  # 是否毕业生班
+    temperature = format(random.uniform(361, 368) / 10, '.1f')  # 随机生成体温
     logging.info(f'生成今日体温 {temperature}')
 
     model['brzgtw'] = temperature
@@ -54,6 +58,8 @@ def main(args):
     })
 
     # 登录统一认证系统
+    if not args.username or not args.password:
+        raise LoginException("请先设置secrets！")
     sso_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/shsj/common'
     response = session.get(sso_url)
     logging.info(f'GET {sso_url} {response.status_code}')
@@ -61,11 +67,11 @@ def main(args):
     html = etree.HTML(response.text)
     lt = html.xpath('//input[@name="lt"]/@value')[0]
     execution = html.xpath('//input[@name="execution"]/@value')[0]
-    eventId = html.xpath('//input[@name="_eventId"]/@value')[0]
+    event_id = html.xpath('//input[@name="_eventId"]/@value')[0]
     login_params = {
         'lt': lt,
         'execution': execution,
-        '_eventId': eventId,
+        '_eventId': event_id,
         'username': args.username,
         'password': args.password,
     }
@@ -77,12 +83,10 @@ def main(args):
 
     if response.status_code == 200:
         # 登录失败，输出错误信息
-        msg = etree.HTML(response.text).xpath('//div[@id="msg"]/text()')[0]
-        return False, msg
+        err = etree.HTML(response.text).xpath('//div[@id="msg"]/text()')[0]
+        raise LoginException('登录失败：' + err)
     elif response.status_code != 302:
-        msg = '其他错误'
-        return False, msg
-
+        raise LoginException('登录失败：其他错误')
     logging.info('登录成功')
 
     # 登录成功，继续跳转，更新 cookie
@@ -112,33 +116,37 @@ def main(args):
         today_report = response.json()['module']['data'][0]
         logging.debug(today_report)
 
-        msg = ""
         if today_report['zt'] == '00':
-            msg = '上报信息已存在，尚未提交'
+            err = '上报信息已存在，尚未提交'
         elif today_report['zt'] == '01':
-            msg = '上报信息已提交，待审核'
-            return False, msg
+            err = '上报信息已提交，待审核'
+            return False, err
         elif today_report['zt'] == '02':
-            msg = '上报信息已审核，无需重复提交'
-            return False, msg
+            err = '上报信息已审核，无需重复提交'
+            return False, err
 
-    report_info = get_report_info(session, result['module'])
+    report_info = get_report_info(session, result['module'], args.graduating)
     save_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx'
     response = session.post(save_url, params=report_info)
     logging.info(f'POST {save_url} {response.status_code}')
 
     res_msg = '提交成功' if response.json()['isSuccess'] else '提交失败'
-    return  response.json()['isSuccess'], res_msg
+    return response.json()['isSuccess'], res_msg
 
 
 if __name__ == '__main__':
-    args = parser.parse_args()
-    is_successful, msg = main(args)
-    logging.warning(msg)
-    if args.api_key:
-        txt = ""
+    arguments = parser.parse_args()
+
+    try:
+        is_successful, msg = main(arguments)
+    except LoginException as e:
+        logging.critical(e)
+    else:
         if is_successful:
+            logging.warning(msg)
             txt = f"疫情上报成功！{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
         else:
-            txt = f"疫情上报失败，原因：{msg}{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
-        requests.get(f"https://sc.ftqq.com/{args.api_key}.send?text={txt}")
+            logging.error(msg)
+            txt = f"疫情上报失败，原因：{msg}。{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
+        if arguments.api_key:
+            requests.get(f"https://sc.ftqq.com/{arguments.api_key}.send?text={txt}")
