@@ -12,7 +12,7 @@
    | :----: | :-----: |
    | username | HITsz 统一身份认证用户名 （学号） |
    | password | HITsz 统一身份认证密码           |
-   | graduating | 是否毕业生班（是： `1` ，否： `0` ） |
+   | graduating | 是否毕业生班（是 `1` ，否 `0` <sup>默认</sup>） |
    | API_KEY  | Server 酱推送的 sckey <sup>[如何申请？](http://sc.ftqq.com/)</sup> |
 3. 开启 Action <sup>[如何开启？](./how-to-enable)</sup>
 4. 每天早上 7:00 (UTC 23:00) 可自动定时运行，如果填写 `API_KEY` ，即可在微信上收到运行结果推送

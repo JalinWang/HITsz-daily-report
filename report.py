@@ -23,9 +23,7 @@ parser.add_argument('-k', '--api_key', help='SCKEY')
 def get_report_info(session: requests.Session, module_id: str) -> dict:
     # 获取每日上报信息的模板
     logging.info('获取上报信息模板')
-    params = {
-        'info': json.dumps({'id': module_id})
-    }
+    params = {'info': json.dumps({'id': module_id})}
     get_msg_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxx'
     response = session.post(get_msg_url, params=params)
     logging.info(f'POST {get_msg_url} {response.status_code}')
@@ -35,17 +33,15 @@ def get_report_info(session: requests.Session, module_id: str) -> dict:
                 "dqztbz", "brfsgktt", "brzgtw", "brsfjy", "brjyyymc", "brzdjlm", "brzdjlbz", "qtbgsx", "sffwwhhb",
                 "sftjwhjhb", "tcyhbwhrysfjc", "sftzrychbwhhl", "sfjdwhhbry", "tcjtfs", "tchbcc", "tccx", "tczwh",
                 "tcjcms", "gpsxx", "sfjcqthbwhry", "sfjcqthbwhrybz", "tcjtfsbz"]
+
     model = {key: origin_data[key] for key in key_list}
     model['id'] = module_id
-    model['sffwwhhb'] = args.graduating     # 是否毕业生班
-
-    temperature = format(random.uniform(36, 37), '.1f')     # 随机生成体温
+    model['sffwwhhb'] = args.graduating if args.graduating else '0'  # 是否毕业生班
+    temperature = format(random.uniform(361, 368) / 10, '.1f')       # 随机生成体温
     logging.info(f'生成今日体温 {temperature}')
 
     model['brzgtw'] = temperature
-    report_info = {
-        'info': json.dumps({'model': model})
-    }
+    report_info = {'info': json.dumps({'model': model})}
     logging.info('生成上报信息成功')
     logging.debug(report_info)
     return report_info
