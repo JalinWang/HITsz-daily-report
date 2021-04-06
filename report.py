@@ -10,7 +10,8 @@ import datetime
 import argparse
 import logging
 
-logging.basicConfig(filename=log_file, level=logging.INFO, format=log_format)
+log_format = "%(asctime)s - %(levelname)s - %(message)s"
+logging.basicConfig(level=logging.INFO, format=log_format)
 
 parser = argparse.ArgumentParser(description='HITsz疫情上报')
 parser.add_argument('username', help='用户名')
