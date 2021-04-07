@@ -1,31 +1,21 @@
-# HITsz-daily-report
+# HITsz Daily Report
 
-基于 Github Action 的定时HITsz疫情上报脚本，开箱即用
+基于 Github Actions 的定时 HITsz 疫情上报脚本，开箱即用。  
 感谢 [@JellyBeanXiewh](https://github.com/JellyBeanXiewh/) 提供原始脚本和 idea。
 
-[疫情上报系统入口](http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/yqxx)
+### [疫情上报系统入口](http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/yqxx)
 
-## 使用方法：
-- fork 仓库
-- 设置仓库的 Action Secrets，添加用户名 username、密码 password 和可选的 API_KEY（详细步骤见后文）
-- 开启 Action（详细步骤见后文）
-- 每天早上 7:00 (UTC 23:00) 可自动定时运行，如果填写 API_KEY，即可在微信上收到运行结果推送
+## 使用方法
 
-消息推送 Key 申请地址：[Server酱](http://sc.ftqq.com/)
-
-设置仓库的 Action Secrets，添加用户名 username、密码 password 和可选的 API_KEY：
-
-| Name          | Value                                |
-| ------------- | ------------------------------------ |
-| username      | HITsz统一身份认证密码 （学号）         |
-| password      | HITsz统一身份认证密码                 |
-| API_KEY       | server酱推送的sckey                   |
-
-![添加Action Secret的步骤](./image/instruction.png)
-
-据说 fork 的仓库会默认关闭 Action 的执行，需要在仓库设置里打开：
-![启用Action的步骤1](./image/enable1.png)
-![启用Action的步骤1](./image/enable2.png)
-
-以上步骤都完工后可以手动运行一次工作流，验证是否可以正常工作
-![手动运行](./image/test_run.png)
+1. `Fork` 仓库
+2. 设置仓库的 Actions Secrets  
+   添加用户名 `USERNAME` 和密码 `PASSWORD` ，以及可选的 `GRADUATING` 和 `API_KEY`
+   | Name | Value |
+   | :---: | :---: |
+   | USERNAME | HITsz 统一身份认证用户名 （学号） |
+   | PASSWORD | HITsz 统一身份认证密码 |
+   | GRADUATING | 是否毕业生班：是 `1` ，否 `0` <sup>默认</sup> |
+   | API_KEY | Server 酱推送的 `sckey` <sup>[如何申请？](http://sc.ftqq.com/)</sup> |
+3. 开启 Github Actions <sup>[如何开启？](./how-to-enable-actions)</sup>
+4. 每天早上 7:00 <sup>23:00 UTC</sup> 定时自动运行  
+   如果填写 `API_KEY` ，即可在微信上收到运行结果推送
