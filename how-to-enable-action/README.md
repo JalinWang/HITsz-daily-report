@@ -2,7 +2,7 @@
 
 ![添加 Action Secret 的步骤](image/instruction.png)
 
-`Fork` 的仓库会默认关闭 Action 的执行，需要在仓库设置里打开
+据说 `fork` 的仓库会默认关闭 Action 的执行，需要在仓库设置里打开
 ![启用 Action 的步骤 1](image/enable1.png)
 ![启用 Action 的步骤 2](image/enable2.png)
 
