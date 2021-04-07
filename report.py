@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO, format=log_format)
 parser = argparse.ArgumentParser(description='HITsz疫情上报')
 parser.add_argument('username', help='用户名')
 parser.add_argument('password', help='密码')
-parser.add_argument('graduating', help='毕业班')
+parser.add_argument('is_grad', help='毕业班', type=int, choices=[0, 1])
 parser.add_argument('-k', '--api_key', help='SCKEY')
 
 
@@ -30,7 +30,7 @@ class ReportException(Exception):
         pass
 
 
-def get_report_info(session: requests.Session, module_id: str, graduating: str) -> dict:
+def get_report_info(session: requests.Session, module_id: str, is_grad: int) -> dict:
     # 获取每日上报信息的模板
     logging.info('获取上报信息模板')
     params = {'info': json.dumps({'id': module_id})}
@@ -46,7 +46,7 @@ def get_report_info(session: requests.Session, module_id: str, graduating: str) 
 
     model = {key: origin_data[key] for key in key_list}
     model['id'] = module_id
-    model['sffwwhhb'] = '1' if graduating == '1' else '0'        # 是否毕业生班
+    model['sffwwhhb'] = '1' if is_grad == '1' else '0'        # 是否毕业生班
     temperature = format(random.uniform(361, 368) / 10, '.1f')   # 随机生成体温
     logging.info(f'生成今日体温 {temperature}')
 
@@ -129,7 +129,7 @@ def main(args):
         elif today_report['zt'] == '02':
             raise ReportException.SubmitError('上报信息已审核，无需重复提交。')
 
-    report_info = get_report_info(session, result['module'], args.graduating)
+    report_info = get_report_info(session, result['module'], args.is_grad)
     save_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx'
     response = session.post(save_url, params=report_info)
     logging.info(f'POST {save_url} {response.status_code}')
