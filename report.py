@@ -19,10 +19,10 @@ class ReportException(Exception):
     """上报异常错误信息"""
 
     class LoginError(Exception):
-        pass
+        """登录失败"""
 
     class SubmitError(Exception):
-        pass
+        """上报失败"""
 
 
 class Report(object):
@@ -32,6 +32,7 @@ class Report(object):
         if not args.username or not args.password:
             raise ReportException("请先设置 Actions Secrets！")
 
+        self.session = requests.session()
         self.username = args.username
         self.password = args.password
         self.graduating = '1' if args.graduating else '0'
@@ -55,13 +56,17 @@ class Report(object):
             'sftzrychbwhhl', 'tccx', 'tchbcc', 'tcjcms', 'tcjtfs', 'tcjtfsbz', 'tcyhbwhrysfjc', 'tczwh',
         ]
 
-        self.session = requests.session()
-        self.session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
-                                                   '(KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'})
+    @staticmethod
+    def new_session():
+        sess = requests.session()
+        sess.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
+                                           '(KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'})
+        return sess
 
     def student_login(self):
         """登录统一认证系统"""
 
+        self.session = self.new_session()
         url_sso = self.urls['sso']
         response = self.session.get(url_sso)
         jsessionid = dict_from_cookiejar(response.cookies)['JSESSIONID']
@@ -96,6 +101,8 @@ class Report(object):
         response = self.session.get(next_url)
         logging.debug(f'GET {next_url} {response.status_code}')
 
+        logging.info(f"认证系统登录成功。")
+
     def student_report_check(self):
         """获取当日上报信息"""
 
@@ -106,7 +113,7 @@ class Report(object):
         logging.debug(f'POST {url_csh} {response.status_code}')
 
         if not result.get('isSuccess'):
-            logging.error("新增每日上报信息失败！")
+            logging.warning("新增每日上报信息失败！")
 
             url_check = self.urls['check']
             response = self.session.post(url_check)
@@ -147,6 +154,8 @@ class Report(object):
         if not response.json().get('isSuccess'):
             raise ReportException.SubmitError("上报信息提交失败。")
 
+        logging.info("上报信息提交成功。")
+
 
 def main(args):
     def wait_a_minute(prompt, extra_minutes=0):
@@ -162,8 +171,6 @@ def main(args):
     except ReportException.LoginError:
         wait_a_minute("登录失败，等待{}秒后重试。", 1)
         r.student_login()
-    finally:
-        logging.info(f"认证系统登录成功。")
 
     module_id = r.student_report_check()
 
@@ -172,8 +179,6 @@ def main(args):
     except ReportException.SubmitError:
         wait_a_minute("提交失败，等待{}秒后重试。", 1)
         r.student_report_submit(module_id)
-    finally:
-        logging.info("上报信息提交成功。")
 
 
 if __name__ == '__main__':
@@ -202,3 +207,4 @@ if __name__ == '__main__':
     if arguments.sckey:
         current = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
         requests.get(f"https://sc.ftqq.com/{arguments.sckey}.send?text={report_msg}{current}")
+        logging.info("微信提醒消息已发送。")
