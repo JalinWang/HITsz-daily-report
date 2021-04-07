@@ -24,7 +24,7 @@ class LoginException(Exception):
     pass
 
 
-def get_report_info(session: requests.Session, module_id: str, graduating: str = '0') -> dict:
+def get_report_info(session: requests.Session, module_id: str, graduating: str) -> dict:
     # 获取每日上报信息的模板
     logging.info('获取上报信息模板')
     params = {'info': json.dumps({'id': module_id})}
@@ -40,8 +40,8 @@ def get_report_info(session: requests.Session, module_id: str, graduating: str =
 
     model = {key: origin_data[key] for key in key_list}
     model['id'] = module_id
-    model['sffwwhhb'] = graduating  # 是否毕业生班
-    temperature = format(random.uniform(361, 368) / 10, '.1f')  # 随机生成体温
+    model['sffwwhhb'] = '1' if graduating == '1' else '0'        # 是否毕业生班
+    temperature = format(random.uniform(361, 368) / 10, '.1f')   # 随机生成体温
     logging.info(f'生成今日体温 {temperature}')
 
     model['brzgtw'] = temperature
