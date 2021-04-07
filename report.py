@@ -1,23 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import requests
-from requests.utils import dict_from_cookiejar
-from lxml import etree
 import json
+import time
 import random
-import datetime
-import argparse
 import logging
+import requests
+from lxml import etree
+from datetime import datetime
+from argparse import ArgumentParser
+from requests.utils import dict_from_cookiejar
 
 log_format = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format)
-
-parser = argparse.ArgumentParser(description='HITsz疫情上报')
-parser.add_argument('username', help='用户名')
-parser.add_argument('password', help='密码')
-parser.add_argument('graduating', help='毕业班')
-parser.add_argument('-k', '--api_key', help='SCKEY')
 
 
 class ReportException(Exception):
@@ -30,115 +25,163 @@ class ReportException(Exception):
         pass
 
 
-def get_report_info(session: requests.Session, module_id: str, graduating: str) -> dict:
-    # 获取每日上报信息的模板
-    logging.info('获取上报信息模板')
-    params = {'info': json.dumps({'id': module_id})}
-    get_msg_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxx'
-    response = session.post(get_msg_url, params=params)
-    logging.info(f'POST {get_msg_url} {response.status_code}')
+class Report(object):
+    def __init__(self, args):
+        """参数初始化"""
 
-    origin_data = response.json()['module']['data'][0]
-    key_list = ["stzkm", "dqszd", "hwgj", "hwcs", "hwxxdz", "dqszdsheng", "dqszdshi", "dqszdqu", "gnxxdz", "dqztm",
-                "dqztbz", "brfsgktt", "brzgtw", "brsfjy", "brjyyymc", "brzdjlm", "brzdjlbz", "qtbgsx", "sffwwhhb",
-                "sftjwhjhb", "tcyhbwhrysfjc", "sftzrychbwhhl", "sfjdwhhbry", "tcjtfs", "tchbcc", "tccx", "tczwh",
-                "tcjcms", "gpsxx", "sfjcqthbwhry", "sfjcqthbwhrybz", "tcjtfsbz"]
+        if not args.username or not args.password:
+            raise ReportException("请先设置 Actions Secrets！")
 
-    model = {key: origin_data[key] for key in key_list}
-    model['id'] = module_id
-    model['sffwwhhb'] = '1' if graduating == '1' else '0'        # 是否毕业生班
-    temperature = format(random.uniform(361, 368) / 10, '.1f')   # 随机生成体温
-    logging.info(f'生成今日体温 {temperature}')
+        self.username = args.username
+        self.password = args.password
+        self.graduating = '1' if args.graduating else '0'
+        logging.info(f"{'' if args.graduating else '非'}毕业班学生，微信提醒{'开启' if args.sckey else '关闭'}。")
 
-    model['brzgtw'] = temperature
-    report_info = {'info': json.dumps({'model': model})}
-    logging.info('生成上报信息成功')
-    logging.debug(report_info)
-    return report_info
+        self.urls = {
+            'csh': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/csh',
+            'get': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxx',
+            'sso': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/shsj/common',
+            'uid': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xsHome/getGrxx',
+            'save': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx',
+            'check': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxxList',
+            'login': 'https://sso.hitsz.edu.cn:7002/cas/login;jsessionid={}?service='
+                     'http://xgsm.hitsz.edu.cn/zhxy-xgzs/common/casLogin?params=L3hnX21vYmlsZS94c0hvbWU=',
+        }
+
+        self.keys = [
+            'brfsgktt', 'brjyyymc', 'brsfjy', 'brzdjlbz', 'brzdjlm', 'brzgtw', 'dqszd', 'dqszdqu',
+            'dqszdsheng', 'dqszdshi', 'dqztbz', 'dqztm', 'gnxxdz', 'gpsxx', 'hwcs', 'hwgj', 'hwxxdz',
+            'qtbgsx', 'sffwwhhb', 'sfjcqthbwhry', 'sfjcqthbwhrybz', 'sfjdwhhbry', 'sftjwhjhb', 'stzkm',
+            'sftzrychbwhhl', 'tccx', 'tchbcc', 'tcjcms', 'tcjtfs', 'tcjtfsbz', 'tcyhbwhrysfjc', 'tczwh',
+        ]
+
+        self.session = requests.session()
+        self.session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
+                                                   '(KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'})
+
+    def student_login(self):
+        """登录统一认证系统"""
+
+        url_sso = self.urls['sso']
+        response = self.session.get(url_sso)
+        jsessionid = dict_from_cookiejar(response.cookies)['JSESSIONID']
+        url_login = self.urls['login'].format(jsessionid)
+        logging.debug(f'GET {url_sso} {response.status_code}')
+
+        html = etree.HTML(response.text)
+        lt = html.xpath('//input[@name="lt"]/@value')[0]
+        execution = html.xpath('//input[@name="execution"]/@value')[0]
+        event_id = html.xpath('//input[@name="_eventId"]/@value')[0]
+
+        params = {
+            'lt': lt,
+            'execution': execution,
+            '_eventId': event_id,
+            'username': self.username,
+            'password': self.password,
+        }
+
+        # 禁用跳转，用于处理登录失败的问题
+        response = self.session.post(url_login, params=params, allow_redirects=False)
+        logging.debug(f'POST {url_login} {response.status_code}')
+
+        if response.status_code == 200:
+            err = etree.HTML(response.text).xpath('//div[@id="msg"]/text()')[0]
+            raise ReportException.LoginError(f"{err}。")
+        elif response.status_code != 302:
+            raise ReportException.LoginError("其他错误。")
+
+        # 登录成功，继续跳转，更新 cookie
+        next_url = response.next.url
+        response = self.session.get(next_url)
+        logging.debug(f'GET {next_url} {response.status_code}')
+
+    def student_report_check(self):
+        """获取当日上报信息"""
+
+        # 查询今天是否已生成上报信息，并获得 ID
+        url_csh = self.urls['csh']
+        response = self.session.post(url_csh)
+        result = response.json()
+        logging.debug(f'POST {url_csh} {response.status_code}')
+
+        if not result.get('isSuccess'):
+            logging.error("新增每日上报信息失败！")
+
+            url_check = self.urls['check']
+            response = self.session.post(url_check)
+            today_report = response.json()['module']['data'][0]
+            logging.debug(f'POST {url_check} {response.status_code}')
+
+            if today_report['zt'] == '00':
+                logging.warning("上报信息已存在，尚未提交。")
+            elif today_report['zt'] == '01':
+                raise ReportException.SubmitError("上报信息已提交，待审核。")
+            elif today_report['zt'] == '02':
+                raise ReportException.SubmitError("上报信息已审核，无需重复提交。")
+            else:
+                raise ReportException.SubmitError(f"上报失败，zt：{today_report['zt']}")
+
+        return result['module']
+
+    def student_report_submit(self, module):
+        """上报当日疫情信息"""
+
+        # 获取每日上报信息的模板
+        url_msg = self.urls['get']
+        params = {'info': json.dumps({'id': module})}
+        response = self.session.post(url_msg, params=params)
+        data_orig = response.json()['module']['data'][0]
+        logging.debug(f'POST {url_msg} {response.status_code}')
+
+        temperature = format(random.uniform(361, 368) / 10, '.1f')
+        model = {'id': module, 'brzgtw': temperature, 'sffwwhhb': self.graduating}
+        model |= {key: data_orig[key] for key in self.keys}
+        report_info = {'info': json.dumps({'model': model})}
+        logging.info(f"生成上报信息成功。今日体温：{temperature}℃")
+
+        url_save = self.urls['save']
+        response = self.session.post(url_save, params=report_info)
+        logging.debug(f'POST {url_save} {response.status_code}')
+
+        if not response.json().get('isSuccess'):
+            raise ReportException.SubmitError("上报信息提交失败。")
 
 
 def main(args):
-    session = requests.session()
-    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
-                                          '(KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'})
+    def wait_a_minute(prompt, extra_minutes=0):
+        wait = 60 * extra_minutes + random.randint(0, 60)
+        logging.warning(prompt.format(wait))
+        time.sleep(wait)
 
-    # 登录统一认证系统
-    if not args.username or not args.password:
-        raise ReportException.LoginError("请先设置 actions secrets！")
-    sso_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/shsj/common'
-    response = session.get(sso_url)
-    logging.info(f'GET {sso_url} {response.status_code}')
+    r = Report(args)
 
-    html = etree.HTML(response.text)
-    lt = html.xpath('//input[@name="lt"]/@value')[0]
-    execution = html.xpath('//input[@name="execution"]/@value')[0]
-    event_id = html.xpath('//input[@name="_eventId"]/@value')[0]
-    login_params = {
-        'lt': lt,
-        'execution': execution,
-        '_eventId': event_id,
-        'username': args.username,
-        'password': args.password,
-    }
-    jsessionid = dict_from_cookiejar(response.cookies)['JSESSIONID']
+    try:
+        wait_a_minute("准备就绪，等待{}秒后运行。")
+        r.student_login()
+    except ReportException.LoginError:
+        wait_a_minute("登录失败，等待{}秒后重试。", 1)
+        r.student_login()
+    finally:
+        logging.info(f"认证系统登录成功。")
 
-    login_url = f'https://sso.hitsz.edu.cn:7002/cas/login;jsessionid={jsessionid}?service=' \
-                f'http://xgsm.hitsz.edu.cn/zhxy-xgzs/common/casLogin?params=L3hnX21vYmlsZS94c0hvbWU='
-    response = session.post(login_url, params=login_params, allow_redirects=False)  # 禁用跳转，用于处理登录失败的问题
-    logging.info(f'POST {login_url} {response.status_code}')
+    module_id = r.student_report_check()
 
-    if response.status_code == 200:
-        # 登录失败，输出错误信息
-        err = etree.HTML(response.text).xpath('//div[@id="msg"]/text()')[0]
-        raise ReportException.LoginError(f'{err}。')
-    elif response.status_code != 302:
-        raise ReportException.LoginError('其他错误。')
-    logging.info('登录成功')
-
-    # 登录成功，继续跳转，更新 cookie
-    next_url = response.next.url
-    response = session.get(next_url)
-    logging.info(f'GET {next_url} {response.status_code}')
-
-    # 获取学号，此部分非必要
-    stu_id_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xsHome/getGrxx'
-    response = session.post(stu_id_url)
-    logging.info(f'POST {stu_id_url} {response.status_code}')
-    user = response.json()["module"]["xh"]
-    logging.info(f'当前账号：{user}')
-
-    # 查询今天是否已生成上报信息，并获得 ID
-    csh_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/csh'
-    response = session.post(csh_url)
-    logging.info(f'POST {csh_url} {response.status_code}')
-    result = response.json()
-    logging.debug(result)
-
-    if not result['isSuccess']:
-        logging.error('新增每日上报信息失败')
-        check_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxxList'
-        response = session.post('http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxxList')
-        logging.error(f'POST {check_url} {response.status_code}')
-        today_report = response.json()['module']['data'][0]
-        logging.debug(today_report)
-
-        if today_report['zt'] == '00':
-            pass  # raise ReportException.SubmitError('上报信息已存在，尚未提交。')
-        elif today_report['zt'] == '01':
-            raise ReportException.SubmitError('上报信息已提交，待审核。')
-        elif today_report['zt'] == '02':
-            raise ReportException.SubmitError('上报信息已审核，无需重复提交。')
-
-    report_info = get_report_info(session, result['module'], args.graduating)
-    save_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx'
-    response = session.post(save_url, params=report_info)
-    logging.info(f'POST {save_url} {response.status_code}')
-
-    if not response.json()['isSuccess']:
-        raise ReportException.SubmitError('上报信息提交失败。')
+    try:
+        r.student_report_submit(module_id)
+    except ReportException.SubmitError:
+        wait_a_minute("提交失败，等待{}秒后重试。", 1)
+        r.student_report_submit(module_id)
+    finally:
+        logging.info("上报信息提交成功。")
 
 
 if __name__ == '__main__':
+    parser = ArgumentParser(description='HITsz疫情上报')
+    parser.add_argument('username', help='登录用户名')
+    parser.add_argument('password', help='登录密码')
+    parser.add_argument('-g', '--graduating', help='是否毕业班', action="store_true")
+    parser.add_argument('-k', '--sckey', help='Server酱的sckey')
     arguments = parser.parse_args()
 
     try:
@@ -150,12 +193,12 @@ if __name__ == '__main__':
         report_msg = f"上报失败！原因：{e}"
         logging.error(report_msg)
     except Exception as e:
-        report_msg = f'上报失败！其他错误：{e}'
+        report_msg = f"上报失败！其他错误：{e}"
         logging.critical(report_msg)
     else:
-        report_msg = f"上报成功。"
+        report_msg = f"今日疫情状态上报成功。"
         logging.warning(report_msg)
 
-    if arguments.api_key:
-        current = datetime.datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
-        requests.get(f"https://sc.ftqq.com/{arguments.api_key}.send?text={report_msg}{current}")
+    if arguments.sckey:
+        current = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
+        requests.get(f"https://sc.ftqq.com/{arguments.sckey}.send?text={report_msg}{current}")

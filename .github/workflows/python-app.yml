@@ -33,4 +33,4 @@ jobs:
           GRADUATING: ${{ secrets.graduating }}
           API_KEY: ${{ secrets.api_key }}
         run: |
-          python report.py "$USERNAME" "$PASSWORD" "$GRADUATING" -k "$API_KEY"
+          python report.py "$USERNAME" "$PASSWORD" $GRADUATING -k "$API_KEY"
