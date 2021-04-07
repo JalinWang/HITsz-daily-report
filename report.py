@@ -20,8 +20,14 @@ parser.add_argument('graduating', help='毕业班')
 parser.add_argument('-k', '--api_key', help='SCKEY')
 
 
-class LoginException(Exception):
-    pass
+class ReportException(Exception):
+    """上报异常错误信息"""
+
+    class LoginError(Exception):
+        pass
+
+    class SubmitError(Exception):
+        pass
 
 
 def get_report_info(session: requests.Session, module_id: str, graduating: str) -> dict:
@@ -51,15 +57,14 @@ def get_report_info(session: requests.Session, module_id: str, graduating: str) 
     return report_info
 
 
-def main(args) -> (str, bool):
+def main(args):
     session = requests.session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'
-    })
+    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
+                                          '(KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'})
 
     # 登录统一认证系统
     if not args.username or not args.password:
-        raise LoginException("请先设置secrets！")
+        raise ReportException.LoginError("请先设置 actions secrets！")
     sso_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/shsj/common'
     response = session.get(sso_url)
     logging.info(f'GET {sso_url} {response.status_code}')
@@ -77,16 +82,17 @@ def main(args) -> (str, bool):
     }
     jsessionid = dict_from_cookiejar(response.cookies)['JSESSIONID']
 
-    login_url = f'https://sso.hitsz.edu.cn:7002/cas/login;jsessionid={jsessionid}?service=http://xgsm.hitsz.edu.cn/zhxy-xgzs/common/casLogin?params=L3hnX21vYmlsZS94c0hvbWU='
+    login_url = f'https://sso.hitsz.edu.cn:7002/cas/login;jsessionid={jsessionid}?service=' \
+                f'http://xgsm.hitsz.edu.cn/zhxy-xgzs/common/casLogin?params=L3hnX21vYmlsZS94c0hvbWU='
     response = session.post(login_url, params=login_params, allow_redirects=False)  # 禁用跳转，用于处理登录失败的问题
     logging.info(f'POST {login_url} {response.status_code}')
 
     if response.status_code == 200:
         # 登录失败，输出错误信息
         err = etree.HTML(response.text).xpath('//div[@id="msg"]/text()')[0]
-        raise LoginException('登录失败：' + err)
+        raise ReportException.LoginError(f'{err}。')
     elif response.status_code != 302:
-        raise LoginException('登录失败：其他错误')
+        raise ReportException.LoginError('其他错误。')
     logging.info('登录成功')
 
     # 登录成功，继续跳转，更新 cookie
@@ -117,39 +123,39 @@ def main(args) -> (str, bool):
         logging.debug(today_report)
 
         if today_report['zt'] == '00':
-            err_msg = '上报信息已存在，尚未提交'
+            pass  # raise ReportException.SubmitError('上报信息已存在，尚未提交。')
         elif today_report['zt'] == '01':
-            err_msg = '上报信息已提交，待审核'
-            return err_msg, False
+            raise ReportException.SubmitError('上报信息已提交，待审核。')
         elif today_report['zt'] == '02':
-            err_msg = '上报信息已审核，无需重复提交'
-            return err_msg, False
+            raise ReportException.SubmitError('上报信息已审核，无需重复提交。')
 
     report_info = get_report_info(session, result['module'], args.graduating)
     save_url = 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx'
     response = session.post(save_url, params=report_info)
     logging.info(f'POST {save_url} {response.status_code}')
 
-    res_msg = '提交成功' if response.json()['isSuccess'] else '提交失败'
-    return res_msg, response.json()['isSuccess']
+    if not response.json()['isSuccess']:
+        raise ReportException.SubmitError('上报信息提交失败。')
 
 
 if __name__ == '__main__':
     arguments = parser.parse_args()
-    current = datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')
 
     try:
-        msg, ok = main(arguments)
-    except LoginException as e:
-        logging.critical(e)
-        wx_msg = f"登陆失败！{current}"
+        main(arguments)
+    except ReportException.LoginError as e:
+        report_msg = f"登陆失败！原因：{e}"
+        logging.error(report_msg)
+    except ReportException.SubmitError as e:
+        report_msg = f"上报失败！原因：{e}"
+        logging.error(report_msg)
+    except Exception as e:
+        report_msg = f'上报失败！其他错误：{e}'
+        logging.critical(report_msg)
     else:
-        if ok:
-            logging.warning(msg)
-            wx_msg = f"疫情上报成功。{current}"
-        else:
-            logging.error(msg)
-            wx_msg = f"疫情上报失败，原因：{msg}。{current}"
+        report_msg = f"上报成功。"
+        logging.warning(report_msg)
 
     if arguments.api_key:
-        requests.get(f"https://sc.ftqq.com/{arguments.api_key}.send?text={wx_msg}")
+        current = datetime.datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
+        requests.get(f"https://sc.ftqq.com/{arguments.api_key}.send?text={report_msg}{current}")
