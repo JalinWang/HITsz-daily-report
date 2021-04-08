@@ -19,4 +19,3 @@
 3. 开启 Github Actions <sup>[如何开启？](./how-to-enable-actions)</sup>
 4. 每天早上 7:00 <sup>23:00 UTC</sup> 定时自动运行  
    如果填写 `API_KEY` ，即可在微信上收到运行结果推送（由 [Server 酱](http://sc.ftqq.com/) 提供）
-
