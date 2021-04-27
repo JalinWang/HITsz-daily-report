@@ -7,11 +7,17 @@ import json
 import random
 import datetime
 import argparse
+import smtplib
+from email.mime.text import MIMEText
+from email.utils import formataddr
+from email.header import Header
 
 parser = argparse.ArgumentParser(description='HITsz疫情上报')
 parser.add_argument('username', help='HITsz SSO登录用户名（学号）')
 parser.add_argument('password', help='HITsz SSO登录密码')
-parser.add_argument('-k', '--api_key', help='Server酱的SCKEY')
+parser.add_argument('-k', '--api_key', help='Server酱的SCKEY，或是电邮密码/Key')
+parser.add_argument('-m', '--mail_to', help='电邮信息，格式"服务器[:端口[U]]:用户名"')
+
 
 
 
@@ -138,9 +144,41 @@ if __name__ == '__main__':
     is_successful, msg = main(args)
     print_log(msg)
     if args.api_key:
-        txt = ""
+        report_msg = ""  # 生成上报报告
         if is_successful:
-            txt = f"疫情上报成功！{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
+            report_msg = f"疫情上报成功！{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
         else:
-            txt = f"疫情上报失败，原因：{msg}{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
-        requests.get(f"https://sc.ftqq.com/{args.api_key}.send?text={txt}")
+            report_msg = f"疫情上报失败，原因：{msg}{datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
+
+        if args.mail_to:
+            mail_info = args.mail_to.split(':')
+            mail_addr = mail_info[-1]
+
+            msg = MIMEText(report_msg, 'plain', 'utf-8')
+            msg['Subject'] = Header(report_msg, 'utf-8')
+            msg['From'] = 'AUTO_REPORT_BOT'
+            msg['To'] = mail_addr
+
+            host = mail_info[0]
+            unsafe = False
+            if len(mail_info) == 3 and mail_info[1][-1] == 'U':
+                unsafe = True
+                mail_info[1] = mail_info[1][:-1]
+            try:
+                s = smtplib.SMTP(host=host) if len(mail_info) == 2 else smtplib.SMTP(
+                    host=host, port=int(mail_info[1]))
+                if not unsafe:
+                    s.starttls()
+                s.login(mail_addr, args.api_key)
+                print_log('邮件服务器连接成功')
+                s.ehlo_or_helo_if_needed()
+                s.sendmail(mail_addr, mail_addr, msg.as_string())
+                s.quit()
+                print_log('邮件发送成功！')
+            except Exception as e:
+                print_log('邮件发送失败。')
+                print_log(e)
+
+        else:
+            requests.get(
+                f"https://sc.ftqq.com/{args.api_key}.send?text={report_msg}")
