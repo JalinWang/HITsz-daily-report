@@ -32,5 +32,6 @@ jobs:
         USERNAME: ${{ secrets.username }}
         PASSWORD: ${{ secrets.password }}
         API_KEY: ${{ secrets.api_key }}
+        MAIL_TO: ${{secrets.mail_to}}
       run: |
         python report.py "$USERNAME" "$PASSWORD" -k "$API_KEY" -m "$MAIL_TO"
