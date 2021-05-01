@@ -13,6 +13,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Run EasyConnect
+        shell: bash
+        run: |
+          echo  -e "https://vpn.hitsz.edu.cn\n${{ secrets.username }}\n${{ secrets.password }}" > setting.conf
+          cat setting.conf
+          docker run --device /dev/net/tun --cap-add NET_ADMIN -i -p 127.0.0.1:1080:1080 -e EC_VER=7.6.7 hagb/docker-easyconnect:cli < setting.conf
+
       - uses: actions/checkout@v2
       - name: Set up Python 3.9
         uses: actions/setup-python@v2
