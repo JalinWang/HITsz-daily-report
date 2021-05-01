@@ -194,17 +194,20 @@ if __name__ == '__main__':
     except ReportException.LoginError as e:
         report_msg = f"登陆失败！原因：{e}"
         logging.error(report_msg)
+        raise ReportException(report_msg)
     except ReportException.SubmitError as e:
         report_msg = f"上报失败！原因：{e}"
         logging.error(report_msg)
+        raise ReportException(report_msg)
     except Exception as e:
         report_msg = f"上报失败！其他错误：{e}"
         logging.critical(report_msg)
+        raise ReportException(report_msg)
     else:
         report_msg = f"今日疫情状态上报成功。"
         logging.warning(report_msg)
-
-    if arguments.sckey:
-        current = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
-        requests.get(f"https://sc.ftqq.com/{arguments.sckey}.send?text={report_msg}{current}")
-        logging.info("微信提醒消息已发送。")
+    finally:
+        if arguments.sckey:
+            current = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
+            requests.get(f"https://sc.ftqq.com/{arguments.sckey}.send?text={report_msg}{current}")
+            logging.info("微信提醒消息已发送。")
