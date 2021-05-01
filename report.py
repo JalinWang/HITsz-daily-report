@@ -166,7 +166,6 @@ def main(args):
     r = Report(args)
 
     try:
-        wait_a_minute("准备就绪，等待{}秒后运行。")
         r.student_login()
     except ReportException.LoginError:
         wait_a_minute("登录失败，等待{}秒后重试。", 1)
