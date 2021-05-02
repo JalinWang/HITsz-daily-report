@@ -24,6 +24,9 @@ class ReportException(Exception):
     class SubmitError(Exception):
         """上报失败"""
 
+    class ReportExistError(Exception):
+        """已经上报"""
+
 
 class Report(object):
     def __init__(self, args):
@@ -33,9 +36,12 @@ class Report(object):
             raise ReportException("请先设置 Actions Secrets！")
 
         self.session = requests.session()
+        self.proxies = self.set_vpn_port(1080)
+
         self.username = args.username
         self.password = args.password
         self.graduating = '1' if args.graduating else '0'
+
         logging.info(f"{'' if args.graduating else '非'}毕业班学生，微信提醒{'开启' if args.sckey else '关闭'}。")
 
         self.urls = {
@@ -56,10 +62,11 @@ class Report(object):
             'sftzrychbwhhl', 'tccx', 'tchbcc', 'tcjcms', 'tcjtfs', 'tcjtfsbz', 'tcyhbwhrysfjc', 'tczwh',
         ]
 
-        self.proxies = {
-          "http": "socks5h://127.0.0.1:1080",
-          "https": "socks5h://127.0.0.1:1080"
-        }
+    @staticmethod
+    def set_vpn_port(port):
+        socks5 = f"socks5h://127.0.0.1:{port}"
+        proxies = {"http": socks5, "https": socks5}
+        return proxies
 
     @staticmethod
     def new_session():
@@ -128,9 +135,9 @@ class Report(object):
             if today_report['zt'] == '00':
                 logging.warning("上报信息已存在，尚未提交。")
             elif today_report['zt'] == '01':
-                raise ReportException.SubmitError("上报信息已提交，待审核。")
+                raise ReportException.ReportExistError("上报信息已提交，待审核。")
             elif today_report['zt'] == '02':
-                raise ReportException.SubmitError("上报信息已审核，无需重复提交。")
+                raise ReportException.ReportExistError("上报信息已审核，无需重复提交。")
             else:
                 raise ReportException.SubmitError(f"上报失败，zt：{today_report['zt']}")
 
@@ -173,15 +180,24 @@ def main(args):
     try:
         r.student_login()
     except ReportException.LoginError:
-        wait_a_minute("登录失败，等待{}秒后重试。", 1)
+        wait_a_minute("登录失败，将在 {} 秒后重试。", 1)
+        r.student_login()
+    except Exception as err:
+        logging.error(err)
+        wait_a_minute("切换代理，将在 {} 秒后重试。")
+        r.proxies = r.set_vpn_port(2080)
         r.student_login()
 
-    module_id = r.student_report_check()
+    try:
+        module_id = r.student_report_check()
+    except ReportException.ReportExistError as err:
+        logging.error(err)
+        return
 
     try:
         r.student_report_submit(module_id)
     except ReportException.SubmitError:
-        wait_a_minute("提交失败，等待{}秒后重试。", 1)
+        wait_a_minute("提交失败，将在 {} 秒后重试。", 1)
         r.student_report_submit(module_id)
 
 
@@ -211,7 +227,7 @@ if __name__ == '__main__':
         report_msg = f"今日疫情状态上报成功。"
         logging.warning(report_msg)
     finally:
+        current = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
         if arguments.sckey:
-            current = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
             requests.get(f"https://sc.ftqq.com/{arguments.sckey}.send?text={report_msg}{current}")
             logging.info("微信提醒消息已发送。")

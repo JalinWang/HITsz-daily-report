@@ -1,7 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
-name: Auto Run Daily
+name: Auto Report Daily
 
 on:
   workflow_dispatch:
@@ -19,6 +16,9 @@ jobs:
           touch ~/.easyconn
           echo -e "https://vpn.hitsz.edu.cn\n${{ secrets.username }}\n${{ secrets.password }}" > setting.conf
           docker run --device /dev/net/tun --name 'EasyConnect' --cap-add NET_ADMIN -i -v $HOME/.easyconn:/root/.easyconn -p 127.0.0.1:1080:1080 -e EC_VER=7.6.7 hagb/docker-easyconnect:cli < setting.conf &
+          sleep 30
+          docker run --device /dev/net/tun --name 'Contingency' --cap-add NET_ADMIN -i -v $HOME/.easyconn:/root/.easyconn -p 127.0.0.1:2080:1080 -e EC_VER=7.6.7 hagb/docker-easyconnect:cli < setting.conf &
+          sleep 30
 
       - uses: actions/checkout@v2
       - name: Set up Python environment
@@ -36,9 +36,11 @@ jobs:
       - name: Check VPN status
         shell: bash
         run: |
-          sleep 30
           docker container ls
+          echo -e "\n=== EasyConnect ===\n"
           docker container logs EasyConnect
+          echo -e "\n=== Contingency ===\n"
+          docker container logs Contingency
 
       - name: Run daily report script
         shell: bash
