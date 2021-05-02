@@ -36,9 +36,12 @@ class Report(object):
             raise ReportException("请先设置 Actions Secrets！")
 
         self.session = requests.session()
+        self.proxies = self.set_vpn_port(1080)
+
         self.username = args.username
         self.password = args.password
         self.graduating = '1' if args.graduating else '0'
+
         logging.info(f"{'' if args.graduating else '非'}毕业班学生，微信提醒{'开启' if args.sckey else '关闭'}。")
 
         self.urls = {
@@ -59,16 +62,11 @@ class Report(object):
             'sftzrychbwhhl', 'tccx', 'tchbcc', 'tcjcms', 'tcjtfs', 'tcjtfsbz', 'tcyhbwhrysfjc', 'tczwh',
         ]
 
-        self.proxies = {
-          "http": "socks5h://127.0.0.1:1080",
-          "https": "socks5h://127.0.0.1:1080"
-        }
-    
-    def set_vpn_port(self, port):
-        self.proxies = {
-          "http": f"socks5h://127.0.0.1:{port}",
-          "https": f"socks5h://127.0.0.1:{port}"
-        }
+    @staticmethod
+    def set_vpn_port(port):
+        socks5 = f"socks5h://127.0.0.1:{port}"
+        proxies = {"http": socks5, "https": socks5}
+        return proxies
 
     @staticmethod
     def new_session():
@@ -182,14 +180,18 @@ def main(args):
     try:
         r.student_login()
     except ReportException.LoginError:
-        wait_a_minute("登录失败，已切换代理，将在 {} 秒后重试。", 1)
-        r.set_vpn_port(2080)
+        wait_a_minute("登录失败，将在 {} 秒后重试。", 1)
+        r.student_login()
+    except Exception as err:
+        logging.error(err)
+        wait_a_minute("切换代理，将在 {} 秒后重试。")
+        r.proxies = r.set_vpn_port(2080)
         r.student_login()
 
     try:
         module_id = r.student_report_check()
-    except ReportException.ReportExistError as e:
-        logging.error(e)
+    except ReportException.ReportExistError as err:
+        logging.error(err)
         return
 
     try:
@@ -225,7 +227,7 @@ if __name__ == '__main__':
         report_msg = f"今日疫情状态上报成功。"
         logging.warning(report_msg)
     finally:
+        current = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
         if arguments.sckey:
-            current = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
             requests.get(f"https://sc.ftqq.com/{arguments.sckey}.send?text={report_msg}{current}")
             logging.info("微信提醒消息已发送。")
