@@ -68,17 +68,16 @@ class Report(object):
         proxies = {"http": socks5, "https": socks5}
         return proxies
 
-    @staticmethod
-    def new_session():
+    def start_new_session(self):
         sess = requests.session()
         sess.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
                                            '(KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'})
-        return sess
+        self.session = sess
 
     def student_login(self):
         """登录统一认证系统"""
 
-        self.session = self.new_session()
+        self.start_new_session()
         url_sso = self.urls['sso']
         response = self.session.get(url_sso, proxies=self.proxies)
         jsessionid = dict_from_cookiejar(response.cookies)['JSESSIONID']
