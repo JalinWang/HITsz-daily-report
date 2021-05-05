@@ -1,9 +1,9 @@
 # HITsz Daily Report
 
-基于 Github Actions 的定时 HITsz 疫情上报脚本，开箱即用。  
-感谢 [@JellyBeanXiewh](https://github.com/JellyBeanXiewh/) 提供原始脚本和 idea。
+基于 Github Actions 的 "HITsz 疫情系统" <sup>[访问入口](http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/yqxx)</sup>定时自动上报脚本，开箱即用。 
 
-### [疫情上报系统入口](http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/yqxx)
+感谢 [@JellyBeanXiewh](https://github.com/JellyBeanXiewh/) 提供原始脚本和 idea。
+感谢 [@bugstop](https://github.com/bugstop/) 对脚本进行重构并新增 Easy Connect 校内代理访问。
 
 ## 使用方法
 
@@ -20,3 +20,6 @@
 4. 每天早上 7:00 <sup>23:00 UTC</sup> 定时自动运行  
    如果填写 `API_KEY` ，即可在微信上收到运行结果推送（由 [Server 酱](http://sc.ftqq.com/) 提供）  
    或者你可以打开 GitHub Actions 执行的全局邮件通知 <sup>[如何开启？](./how-to-enable-actions/#设置邮件提醒)</sup>，包括成功或失败信息。
+
+## Change log
+参阅 [Releases列表](https://github.com/JalinWang/HITsz-daily-report/releases) 。
