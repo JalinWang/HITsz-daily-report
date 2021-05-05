@@ -205,8 +205,8 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='HITsz疫情上报')
     parser.add_argument('username', help='登录用户名')
     parser.add_argument('password', help='登录密码')
-    parser.add_argument('-g', '--graduating', help='是否毕业班', action="store_true")
-    parser.add_argument('-k', '--sckey', help='Server酱的sckey')
+    parser.add_argument('-g', '--graduating', help='是否毕业班', nargs="?") # , type=int 兼容老版"-g"选项
+    parser.add_argument('-k', '--sckey', help='Server酱的sckey', nargs="?")
     arguments = parser.parse_args()
 
     try:
