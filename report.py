@@ -44,7 +44,7 @@ class Report(object):
 
         logging.info(f"{'' if args.graduating else '非'}毕业班学生，"
                      f"微信提醒{'开启' if args.sckey else '关闭'}，"
-                     f"VPN{'开启' if args.proxy else '关闭'}。")
+                     f"VPN {'开启' if args.proxy else '关闭'}。")
 
         self.proxies = self.set_proxies()
         self.session = requests.session()
