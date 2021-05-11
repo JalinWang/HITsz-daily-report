@@ -1,6 +1,6 @@
 # HITsz Daily Report
 
-基于 GitHub Actions 的「HITsz 疫情系统」<sup>[访问入口](http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/yqxx)</sup> 定时自动上报脚本，开箱即用。 
+基于 GitHub Actions 的「HITsz 疫情系统」<sup>[访问入口](http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/yqxx)</sup> 定时自动上报脚本，开箱即用。
 
 感谢 [@JellyBeanXiewh](https://github.com/JellyBeanXiewh/) 提供原始脚本和 idea。  
 感谢 [@bugstop](https://github.com/bugstop/) 对脚本进行重构并新增 Easy Connect 校内代理访问。
@@ -23,4 +23,4 @@
 
 ## Change Log
 
-参阅 [Releases 列表](https://github.com/JalinWang/HITsz-daily-report/releases)。
+参阅 [Releases](https://github.com/JalinWang/HITsz-daily-report/releases) 列表。
