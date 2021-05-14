@@ -29,20 +29,24 @@ class ReportException(Exception):
 
 
 class Report(object):
-    def __init__(self, args):
+    def __init__(self, args, proxy_on=False, ports=None):
         """参数初始化"""
 
         if not args.username or not args.password:
             raise ReportException("请先设置 Actions Secrets！")
 
-        self.is_proxy_on = args.proxy_on
+        self.proxy_on = proxy_on
+        self.proxy_ports = [] if ports is None else ports
+
         self.username = args.username
         self.password = args.password
         self.graduating = '1' if args.graduating else '0'
 
-        logging.info(f"{'' if args.graduating else '非'}毕业班学生，微信提醒{'开启' if args.sckey else '关闭'}。")
+        logging.info(f"{'' if args.graduating else '非'}毕业班学生，"
+                     f"微信提醒{'开启' if args.sckey else '关闭'}，"
+                     f"VPN {'开启' if args.proxy else '关闭'}。")
 
-        self.vpn_port = 1080
+        self.proxies = self.config_proxies()
         self.session = requests.session()
 
         self.urls = {
@@ -63,29 +67,39 @@ class Report(object):
             'sftzrychbwhhl', 'tccx', 'tchbcc', 'tcjcms', 'tcjtfs', 'tcjtfsbz', 'tcyhbwhrysfjc', 'tczwh',
         ]
 
-    def get_proxies(self):
-        if not self.is_proxy_on:
-            return None
-        else:
-            socks5 = f"socks5h://127.0.0.1:{self.vpn_port}"
-            proxies = {"http": socks5, "https": socks5}
-            return proxies
-
-    def set_vpn_port(self, port):
-        self.vpn_port = port
-
     def start_new_session(self):
         sess = requests.session()
         sess.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
                                            '(KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'})
         self.session = sess
 
+    def config_proxies(self, port: int = None):
+        if port and self.proxy_on:
+            socks5 = f"socks5h://127.0.0.1:{port}"
+            proxies = {"http": socks5, "https": socks5}
+            return proxies
+        else:
+            return None
+
+    def switch_proxies(self, func):
+        for p in self.proxy_ports:
+            try:
+                self.config_proxies(p)
+                func()
+            except Exception as error:
+                logging.debug(error)
+            else:
+                logging.info(f"代理端口设定为：{p}")
+                break
+        else:
+            raise ReportException.LoginError("无可用代理。")
+
     def student_login(self):
         """登录统一认证系统"""
 
         self.start_new_session()
         url_sso = self.urls['sso']
-        response = self.session.get(url_sso, proxies=self.get_proxies())
+        response = self.session.get(url_sso, proxies=self.proxies)
         jsessionid = dict_from_cookiejar(response.cookies)['JSESSIONID']
         url_login = self.urls['login'].format(jsessionid)
         logging.debug(f'GET {url_sso} {response.status_code}')
@@ -104,7 +118,7 @@ class Report(object):
         }
 
         # 禁用跳转，用于处理登录失败的问题
-        response = self.session.post(url_login, params=params, allow_redirects=False, proxies=self.get_proxies())
+        response = self.session.post(url_login, params=params, allow_redirects=False, proxies=self.proxies)
         logging.debug(f'POST {url_login} {response.status_code}')
 
         if response.status_code == 200:
@@ -115,7 +129,7 @@ class Report(object):
 
         # 登录成功，继续跳转，更新 cookie
         next_url = response.next.url
-        response = self.session.get(next_url, proxies=self.get_proxies())
+        response = self.session.get(next_url, proxies=self.proxies)
         logging.debug(f'GET {next_url} {response.status_code}')
 
         logging.info(f"认证系统登录成功。")
@@ -125,7 +139,7 @@ class Report(object):
 
         # 查询今天是否已生成上报信息，并获得 ID
         url_csh = self.urls['csh']
-        response = self.session.post(url_csh, proxies=self.get_proxies())
+        response = self.session.post(url_csh, proxies=self.proxies)
         result = response.json()
         logging.debug(f'POST {url_csh} {response.status_code}')
 
@@ -133,7 +147,7 @@ class Report(object):
             logging.warning("新增每日上报信息失败！")
 
             url_check = self.urls['check']
-            response = self.session.post(url_check, proxies=self.get_proxies())
+            response = self.session.post(url_check, proxies=self.proxies)
             today_report = response.json()['module']['data'][0]
             logging.debug(f'POST {url_check} {response.status_code}')
 
@@ -154,7 +168,7 @@ class Report(object):
         # 获取每日上报信息的模板
         url_msg = self.urls['get']
         params = {'info': json.dumps({'id': module})}
-        response = self.session.post(url_msg, params=params, proxies=self.get_proxies())
+        response = self.session.post(url_msg, params=params, proxies=self.proxies)
 
         data_orig = response.json()['module']['data'][0]
         logging.debug(f'POST {url_msg} {response.status_code}')
@@ -166,7 +180,7 @@ class Report(object):
         logging.info(f"生成上报信息成功。今日体温：{temperature}℃")
 
         url_save = self.urls['save']
-        response = self.session.post(url_save, params=report_info, proxies=self.get_proxies())
+        response = self.session.post(url_save, params=report_info, proxies=self.proxies)
         logging.debug(f'POST {url_save} {response.status_code}')
 
         if not response.json().get('isSuccess'):
@@ -181,7 +195,7 @@ def main(args):
         logging.warning(prompt.format(wait))
         time.sleep(wait)
 
-    r = Report(args)
+    r = Report(args, proxy_on=args.proxy, ports=[1080, 2080])
 
     try:
         r.student_login()
@@ -189,10 +203,12 @@ def main(args):
         wait_a_minute("登录失败，将在 {} 秒后重试。", 1)
         r.student_login()
     except Exception as err:
-        logging.error(err)
-        wait_a_minute("切换代理，将在 {} 秒后重试。")
-        r.set_vpn_port(2080)
-        r.student_login()
+        if r.proxy_on:
+            logging.error(err)
+            wait_a_minute("开启代理，将在 {} 秒后重试。")
+            r.switch_proxies(r.student_login)
+        else:
+            raise err
 
     try:
         module_id = r.student_report_check()
@@ -211,9 +227,9 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='HITsz疫情上报')
     parser.add_argument('username', help='登录用户名')
     parser.add_argument('password', help='登录密码')
-    parser.add_argument('-g', '--graduating', help='是否毕业班', nargs="?") # , type=int 兼容老版"-g"选项
+    parser.add_argument('-g', '--graduating', help='是否毕业班', nargs="?")
     parser.add_argument('-k', '--sckey', help='Server酱的sckey', nargs="?")
-    parser.add_argument('-p', '--proxy_on', help='是否开启Easy Connect代理', action="store_true")
+    parser.add_argument('-p', '--proxy', help='是否开启EasyConnect代理', action="store_true")
     arguments = parser.parse_args()
 
     try:
