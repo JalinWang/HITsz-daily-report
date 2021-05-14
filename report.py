@@ -46,7 +46,7 @@ class Report(object):
                      f"微信提醒{'开启' if args.sckey else '关闭'}，"
                      f"VPN {'开启' if args.proxy else '关闭'}。")
 
-        self.proxies = self.set_proxies()
+        self.proxies = self.config_proxies()
         self.session = requests.session()
 
         self.urls = {
@@ -73,7 +73,7 @@ class Report(object):
                                            '(KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36'})
         self.session = sess
 
-    def set_proxies(self, port: int = None):
+    def config_proxies(self, port: int = None):
         if port and self.proxy_on:
             socks5 = f"socks5h://127.0.0.1:{port}"
             proxies = {"http": socks5, "https": socks5}
@@ -84,7 +84,7 @@ class Report(object):
     def switch_proxies(self, func):
         for p in self.proxy_ports:
             try:
-                self.set_proxies(p)
+                self.config_proxies(p)
                 func()
             except Exception as error:
                 logging.debug(error)
