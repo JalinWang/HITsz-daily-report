@@ -1,9 +1,19 @@
 # HITsz Daily Report
 
-基于 GitHub Actions 的「HITsz 疫情系统」<sup>[访问入口](http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/yqxx)</sup> 定时自动上报脚本，开箱即用。
+基于 GitHub Actions 的「HITsz 疫情系统」<sup>[访问入口](http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/yqxx)</sup> 定时自动上报脚本，开箱即用（适用于本硕）。
 
 感谢 [@JellyBeanXiewh](https://github.com/JellyBeanXiewh/) 提供原始脚本和 idea。  
 感谢 [@bugstop](https://github.com/bugstop/) 对脚本进行重构并新增 Easy Connect 校内代理访问。
+
+## 免责声明
+
+本脚本为减轻导员和负责人/班长通知成本而诞生，作者不对任何因个人瞒报而破坏疫情防治工作的行为负责！
+
+如果有发热状况，请及时私信通知导员！！！！
+
+如果有发热状况，请及时私信通知导员！！！！
+
+如果有发热状况，请及时私信通知导员！！！！
 
 ## 使用方法
 
