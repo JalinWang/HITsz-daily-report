@@ -56,6 +56,7 @@ class Report(object):
             'uid': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xsHome/getGrxx',
             'save': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx',
             'check': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxxList',
+            'loc_update': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/updateGpsxx',
             'login': 'https://sso.hitsz.edu.cn:7002/cas/login;jsessionid={}?service='
                      'https://xgsm.hitsz.edu.cn/zhxy-xgzs/common/casLogin?params=L3hnX21vYmlsZS94c0hvbWU=',
         }
@@ -182,6 +183,15 @@ class Report(object):
         model |= {'dqztm': "01"} # 当前状态
         report_info = {'info': json.dumps({'model': model})}
         logging.info(f"生成上报信息成功。今日体温：{temperature}℃")
+
+        url_loc = self.urls['loc_update']
+        loc_info = {'id': module, 'gpswzxx': "广东省", "gpswzjd":113.97132,"gpswzwd":22.58469 }
+        response = self.session.post(url_loc, params={'info':  json.dumps(loc_info)}, proxies=self.proxies)
+        result = response.json()
+        logging.debug(f'POST {url_loc} {response.status_code}')
+        
+        if not result.get('isSuccess'):
+            logging.warning("更新地址失败！（但似乎没啥影响）")
 
         url_save = self.urls['save']
         response = self.session.post(url_save, params=report_info, proxies=self.proxies)
