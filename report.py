@@ -50,14 +50,15 @@ class Report(object):
         self.session = requests.session()
 
         self.urls = {
-            'csh': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/csh',
-            'get': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxx',
-            'sso': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/shsj/common',
-            'uid': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xsHome/getGrxx',
-            'save': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx',
-            'check': 'http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxxList',
+            'csh': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/csh',
+            'get': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxx',
+            'sso': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/shsj/common',
+            'uid': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xsHome/getGrxx',
+            'save': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx',
+            'check': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxxList',
+            'loc_update': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/updateGpsxx',
             'login': 'https://sso.hitsz.edu.cn:7002/cas/login;jsessionid={}?service='
-                     'http://xgsm.hitsz.edu.cn/zhxy-xgzs/common/casLogin?params=L3hnX21vYmlsZS94c0hvbWU=',
+                     'https://xgsm.hitsz.edu.cn/zhxy-xgzs/common/casLogin?params=L3hnX21vYmlsZS94c0hvbWU=',
         }
 
         self.keys = [
@@ -65,6 +66,7 @@ class Report(object):
             'dqszdsheng', 'dqszdshi', 'dqztbz', 'dqztm', 'gnxxdz', 'gpsxx', 'hwcs', 'hwgj', 'hwxxdz',
             'qtbgsx', 'sffwwhhb', 'sfjcqthbwhry', 'sfjcqthbwhrybz', 'sfjdwhhbry', 'sftjwhjhb', 'stzkm',
             'sftzrychbwhhl', 'tccx', 'tchbcc', 'tcjcms', 'tcjtfs', 'tcjtfsbz', 'tcyhbwhrysfjc', 'tczwh',
+            # 'gpswzxx'
         ]
 
     def start_new_session(self):
@@ -75,8 +77,8 @@ class Report(object):
 
     def config_proxies(self, port: int = None):
         if port and self.proxy_on:
-            socks5 = f"socks5h://127.0.0.1:{port}"
-            proxies = {"http": socks5, "https": socks5}
+            socks5 = f'socks5h://127.0.0.1:{port}'
+            proxies = {'http': socks5, 'https': socks5}
             return proxies
         else:
             return None
@@ -176,8 +178,19 @@ class Report(object):
         temperature = format(random.uniform(361, 368) / 10, '.1f')
         model = {key: data_orig[key] for key in self.keys}
         model |= {'id': module, 'brzgtw': temperature, 'sffwwhhb': self.graduating}
+        model |= {'gpswzxx': "广东省深圳市南山区桃源街道平山二路大园工业区北区"}
+        model |= {'stzkm': '01'}  # 其他需要报告的事项
+        model |= {'dqztm': '01'}  # 当前状态
         report_info = {'info': json.dumps({'model': model})}
         logging.info(f"生成上报信息成功。今日体温：{temperature}℃")
+
+        url_loc = self.urls['loc_update']
+        loc_info = {'id': module, 'gpswzxx': "广东省", 'gpswzjd': 113.97132, 'gpswzwd': 22.58469}
+        response = self.session.post(url_loc, params={'info': json.dumps(loc_info)}, proxies=self.proxies)
+        logging.debug(f'POST {url_loc} {response.status_code}')
+
+        if not response.json().get('isSuccess'):
+            logging.warning("更新地址失败！（但似乎没啥影响）")
 
         url_save = self.urls['save']
         response = self.session.post(url_save, params=report_info, proxies=self.proxies)
@@ -202,13 +215,13 @@ def main(args):
     except ReportException.LoginError:
         wait_a_minute("登录失败，将在 {} 秒后重试。", 1)
         r.student_login()
+
     except Exception as err:
-        if r.proxy_on:
-            logging.error(err)
-            wait_a_minute("开启代理，将在 {} 秒后重试。")
-            r.switch_proxies(r.student_login)
-        else:
+        if not r.proxy_on:
             raise err
+        logging.error(err)
+        wait_a_minute("开启代理，将在 {} 秒后重试。")
+        r.switch_proxies(r.student_login)
 
     try:
         module_id = r.student_report_check()
@@ -227,30 +240,35 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='HITsz疫情上报')
     parser.add_argument('username', help='登录用户名')
     parser.add_argument('password', help='登录密码')
-    parser.add_argument('-g', '--graduating', help='是否毕业班', nargs="?")
-    parser.add_argument('-k', '--sckey', help='Server酱的sckey', nargs="?")
-    parser.add_argument('-p', '--proxy', help='是否开启EasyConnect代理', action="store_true")
+    parser.add_argument('-g', '--graduating', help='是否毕业班', nargs='?')
+    parser.add_argument('-k', '--sckey', help='Server酱的sckey', nargs='?')
+    parser.add_argument('-p', '--proxy', help='是否开启EasyConnect代理', action='store_true')
     arguments = parser.parse_args()
 
     try:
         main(arguments)
+
     except ReportException.LoginError as e:
         report_msg = f"登陆失败！原因：{e}"
         logging.error(report_msg)
         raise ReportException(report_msg)
+
     except ReportException.SubmitError as e:
         report_msg = f"上报失败！原因：{e}"
         logging.error(report_msg)
         raise ReportException(report_msg)
+
     except Exception as e:
         report_msg = f"上报失败！其他错误：{e}"
         logging.critical(report_msg)
         raise ReportException(report_msg)
+
     else:
         report_msg = f"今日疫情状态上报成功。"
         logging.warning(report_msg)
+
     finally:
         current = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
         if arguments.sckey:
-            requests.get(f"https://sc.ftqq.com/{arguments.sckey}.send?text={report_msg}{current}")
+            requests.get(f'https://sc.ftqq.com/{arguments.sckey}.send?text={report_msg}{current}')
             logging.info("微信提醒消息已发送。")
