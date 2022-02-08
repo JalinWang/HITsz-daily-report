@@ -56,7 +56,7 @@ class Report(object):
             # 'uid': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xsHome/getGrxx',
             'check': 'https://student.hitsz.edu.cn/xg_mobile/xsMrsbNew/checkTodayData',
 
-            'save': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx',
+            'save': 'https://student.hitsz.edu.cn/xg_mobile/xsMrsbNew/save',
             'loc_update': 'https://webapi.amap.com/maps/ipLocation?key=be8762efdce0ddfbb9e2165a7cc776bd&callback=jsonp_123456_',
             'loc_convert':'https://restapi.amap.com/v3/geocode/regeo?key=be8762efdce0ddfbb9e2165a7cc776bd&s=rsv3&language=zh_cn&location={},{}',
             'login': 'https://sso.hitsz.edu.cn:7002/cas/login?service=https%3A%2F%2Fstudent.hitsz.edu.cn%2Fcommon%2FcasLogin%3Fparams%3DL3hnX21vYmlsZS94c01yc2JOZXcvaW5kZXg%3D',
@@ -196,8 +196,8 @@ class Report(object):
         url_save = self.urls['save']
         info = {"model":{"dqzt":"99","gpsjd":117.647728,"gpswd":26.280749,"kzl1":"1","kzl2":"","kzl3":"","kzl4":"","kzl5":"","kzl6":"福建省","kzl7":"三明市","kzl8":"三元区","kzl9":"列东街1150号","kzl10":"福建省三明市三元区列东街1150号","kzl11":"","kzl12":"","kzl13":"0","kzl14":"","kzl15":"0","kzl16":"","kzl17":"1","kzl18":"0;","kzl19":"","kzl20":"","kzl21":"","kzl22":"","kzl23":"0","kzl24":"0","kzl25":"","kzl26":"","kzl27":"","kzl28":"0","kzl29":"","kzl30":"","kzl31":"","kzl32":"2","kzl33":"","kzl34":{},"kzl38":"福建省","kzl39":"三明市","kzl40":"三元区"}}
         info |= {"token":token}
-        report_info = {'info': json.dumps({'model': info})}
-        response = self.session.post(url_save,params=info, proxies=self.proxies)
+        report_info = {'info': json.dumps(info)}
+        response = self.session.post(url_save,params=report_info, proxies=self.proxies)
         logging.debug(f'POST save_url {response.status_code}')
 
 
