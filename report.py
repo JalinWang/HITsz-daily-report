@@ -42,23 +42,24 @@ class Report(object):
         self.password = args.password
         self.graduating = '1' if args.graduating else '0'
 
-        logging.info(f"{'' if args.graduating else '非'}毕业班学生，"
-                     f"微信提醒{'开启' if args.sckey else '关闭'}，"
+        logging.info(f"微信提醒{'开启' if args.sckey else '关闭'}，"
                      f"VPN {'开启' if args.proxy else '关闭'}。")
 
         self.proxies = self.config_proxies()
         self.session = requests.session()
 
+
         self.urls = {
-            'csh': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/csh',
-            'get': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxx',
-            'sso': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/shsj/common',
-            'uid': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xsHome/getGrxx',
+            'Token':'https://student.hitsz.edu.cn/xg_common/getToken',
+            'get': 'https://student.hitsz.edu.cn/xg_common/getDmx1',
+            # 'sso': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/shsj/common',
+            # 'uid': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xsHome/getGrxx',
+            'check': 'https://student.hitsz.edu.cn/xg_mobile/xsMrsbNew/checkTodayData',
+
             'save': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/saveYqxx',
-            'check': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/getYqxxList',
-            'loc_update': 'https://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/updateGpsxx',
-            'login': 'https://sso.hitsz.edu.cn:7002/cas/login;jsessionid={}?service='
-                     'https://xgsm.hitsz.edu.cn/zhxy-xgzs/common/casLogin?params=L3hnX21vYmlsZS94c0hvbWU=',
+            'loc_update': 'https://webapi.amap.com/maps/ipLocation?key=be8762efdce0ddfbb9e2165a7cc776bd&callback=jsonp_123456_',
+            'loc_convert':'https://restapi.amap.com/v3/geocode/regeo?key=be8762efdce0ddfbb9e2165a7cc776bd&s=rsv3&language=zh_cn&location={},{}',
+            'login': 'https://sso.hitsz.edu.cn:7002/cas/login?service=https%3A%2F%2Fstudent.hitsz.edu.cn%2Fcommon%2FcasLogin%3Fparams%3DL3hnX21vYmlsZS94c01yc2JOZXcvaW5kZXg%3D',
         }
 
         self.keys = [
@@ -100,11 +101,11 @@ class Report(object):
         """登录统一认证系统"""
 
         self.start_new_session()
-        url_sso = self.urls['sso']
-        response = self.session.get(url_sso, proxies=self.proxies)
-        jsessionid = dict_from_cookiejar(response.cookies)['JSESSIONID']
-        url_login = self.urls['login'].format(jsessionid)
-        logging.debug(f'GET {url_sso} {response.status_code}')
+        url_login = self.urls['login']
+        response = self.session.get(url_login, proxies=self.proxies)
+        # jsessionid = dict_from_cookiejar(response.cookies)['JSESSIONID']
+        # url_login = self.urls['login'].format(jsessionid)
+        # logging.debug(f'GET {url_sso} {response.status_code}')
 
         html = etree.HTML(response.text)
         lt = html.xpath('//input[@name="lt"]/@value')[0]
@@ -140,66 +141,70 @@ class Report(object):
         """获取当日上报信息"""
 
         # 查询今天是否已生成上报信息，并获得 ID
-        url_csh = self.urls['csh']
+        url_csh = self.urls['check']
         response = self.session.post(url_csh, proxies=self.proxies)
         result = response.json()
-        logging.debug(f'POST {url_csh} {response.status_code}')
-
         if not result.get('isSuccess'):
             logging.warning("新增每日上报信息失败！")
+        elif result.get('module') == '0':
+            logging.info('上报未提交')
+        elif result.get('module') == '1':
+            ReportException.ReportExistError("上报信息已审核，无需重复提交。")
+        else:
+            raise ReportException.SubmitError(f"上报失败，module:{result.get('mudule')}")
 
-            url_check = self.urls['check']
-            response = self.session.post(url_check, proxies=self.proxies)
-            today_report = response.json()['module']['data'][0]
-            logging.debug(f'POST {url_check} {response.status_code}')
 
-            if today_report['zt'] == '00':
-                logging.warning("上报信息已存在，尚未提交。")
-            elif today_report['zt'] == '01':
-                raise ReportException.ReportExistError("上报信息已提交，待审核。")
-            elif today_report['zt'] == '02':
-                raise ReportException.ReportExistError("上报信息已审核，无需重复提交。")
-            else:
-                raise ReportException.SubmitError(f"上报失败，zt：{today_report['zt']}")
+    # def student_report_submit(self, module):
+    #     """上报当日疫情信息"""
 
-        return result['module']
+    #     # 获取每日上报信息的模板
+    #     url_msg = self.urls['get']
+    #     params = {'info': json.dumps({'id': module})}
+    #     response = self.session.post(url_msg, params=params, proxies=self.proxies)
 
-    def student_report_submit(self, module):
-        """上报当日疫情信息"""
+    #     data_orig = response.json()['module']['data'][0]
+    #     logging.debug(f'POST {url_msg} {response.status_code}')
 
-        # 获取每日上报信息的模板
-        url_msg = self.urls['get']
-        params = {'info': json.dumps({'id': module})}
-        response = self.session.post(url_msg, params=params, proxies=self.proxies)
+    #     temperature = format(random.uniform(361, 368) / 10, '.1f')
+    #     model = {key: data_orig[key] for key in self.keys}
+    #     model |= {'id': module, 'brzgtw': temperature, 'sffwwhhb': self.graduating}
+    #     model |= {'gpswzxx': "广东省深圳市南山区桃源街道平山二路大园工业区北区"}
+    #     model |= {'stzkm': '01'}  # 其他需要报告的事项
+    #     model |= {'dqztm': '01'}  # 当前状态
+    #     report_info = {'info': json.dumps({'model': model})}
+    #     logging.info(f"生成上报信息成功。今日体温：{temperature}℃")
 
-        data_orig = response.json()['module']['data'][0]
-        logging.debug(f'POST {url_msg} {response.status_code}')
+    #     url_loc = self.urls['loc_update']
+    #     loc_info = {'id': module, 'gpswzxx': "广东省", 'gpswzjd': 113.97132, 'gpswzwd': 22.58469}
+    #     response = self.session.post(url_loc, params={'info': json.dumps(loc_info)}, proxies=self.proxies)
+    #     logging.debug(f'POST {url_loc} {response.status_code}')
 
-        temperature = format(random.uniform(361, 368) / 10, '.1f')
-        model = {key: data_orig[key] for key in self.keys}
-        model |= {'id': module, 'brzgtw': temperature, 'sffwwhhb': self.graduating}
-        model |= {'gpswzxx': "广东省深圳市南山区桃源街道平山二路大园工业区北区"}
-        model |= {'stzkm': '01'}  # 其他需要报告的事项
-        model |= {'dqztm': '01'}  # 当前状态
-        report_info = {'info': json.dumps({'model': model})}
-        logging.info(f"生成上报信息成功。今日体温：{temperature}℃")
+    #     if not response.json().get('isSuccess'):
+    #         logging.warning("更新地址失败！（但似乎没啥影响）")
 
-        url_loc = self.urls['loc_update']
-        loc_info = {'id': module, 'gpswzxx': "广东省", 'gpswzjd': 113.97132, 'gpswzwd': 22.58469}
-        response = self.session.post(url_loc, params={'info': json.dumps(loc_info)}, proxies=self.proxies)
-        logging.debug(f'POST {url_loc} {response.status_code}')
+    #     url_save = self.urls['save']
+    #     response = self.session.post(url_save, params=report_info, proxies=self.proxies)
+    #     logging.debug(f'POST {url_save} {response.status_code}')
 
-        if not response.json().get('isSuccess'):
-            logging.warning("更新地址失败！（但似乎没啥影响）")
+    #     if not response.json().get('isSuccess'):
+    #         raise ReportException.SubmitError("上报信息提交失败。")
 
+    #     logging.info("上报信息提交成功。")
+    
+    
+    def simple_submit(self,token):
         url_save = self.urls['save']
-        response = self.session.post(url_save, params=report_info, proxies=self.proxies)
-        logging.debug(f'POST {url_save} {response.status_code}')
+        info = {"model":{"dqzt":"99","gpsjd":117.647728,"gpswd":26.280749,"kzl1":"1","kzl2":"","kzl3":"","kzl4":"","kzl5":"","kzl6":"福建省","kzl7":"三明市","kzl8":"三元区","kzl9":"列东街1150号","kzl10":"福建省三明市三元区列东街1150号","kzl11":"","kzl12":"","kzl13":"0","kzl14":"","kzl15":"0","kzl16":"","kzl17":"1","kzl18":"0;","kzl19":"","kzl20":"","kzl21":"","kzl22":"","kzl23":"0","kzl24":"0","kzl25":"","kzl26":"","kzl27":"","kzl28":"0","kzl29":"","kzl30":"","kzl31":"","kzl32":"2","kzl33":"","kzl34":{},"kzl38":"福建省","kzl39":"三明市","kzl40":"三元区"}}
+        info |= {"token":token}
+        report_info = {'info': json.dumps({'model': info})}
+        response = self.session.post(url_save,params=info, proxies=self.proxies)
+        logging.debug(f'POST save_url {response.status_code}')
 
-        if not response.json().get('isSuccess'):
-            raise ReportException.SubmitError("上报信息提交失败。")
 
-        logging.info("上报信息提交成功。")
+    def get_token(self):
+        url_token = self.urls['Token']
+        response = self.session.post(url_token, proxies=self.proxies)
+        return response.text
 
 
 def main(args):
@@ -224,16 +229,26 @@ def main(args):
         r.switch_proxies(r.student_login)
 
     try:
-        module_id = r.student_report_check()
+        r.student_report_check()
     except ReportException.ReportExistError as err:
         logging.error(err)
         return
+    
+    try:
+        token = r.get_token()
+    except Exception as err:
+        logging.error(err)
 
     try:
-        r.student_report_submit(module_id)
-    except ReportException.SubmitError:
-        wait_a_minute("提交失败，将在 {} 秒后重试。", 1)
-        r.student_report_submit(module_id)
+        r.simple_submit(token)
+    except Exception as err:
+        logging.error(err)
+
+    # try:
+    #     r.student_report_submit(module_id)
+    # except ReportException.SubmitError:
+    #     wait_a_minute("提交失败，将在 {} 秒后重试。", 1)
+    #     r.student_report_submit(module_id)
 
 
 if __name__ == '__main__':
