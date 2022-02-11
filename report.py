@@ -141,10 +141,12 @@ class Report(object):
         else:
             raise ReportException.SubmitError(f"上报失败")
     
-    def simple_submit(self):
+    def student_report_submit(self):
 
         # 获取上报token
-        self.get_token()
+        url_token = self.urls['Token']
+        response = self.session.post(url_token, proxies=self.proxies)
+        self.token = response.text
 
         # 获取昨日保存信息
         response = self.session.post(self.urls['get_msg'])
@@ -157,12 +159,9 @@ class Report(object):
         url_save = self.urls['save']
         response = self.session.post(url_save,params=report_info, proxies=self.proxies)
         logging.debug(f'POST {url_save} {response.status_code}')
-
-
-    def get_token(self):
-        url_token = self.urls['Token']
-        response = self.session.post(url_token, proxies=self.proxies)
-        self.token = response.text
+        if not response.json().get('isSuccess'):
+            raise ReportException.SubmitError("上报信息提交失败。")
+        logging.info("上报信息提交成功。")
 
 
 def main(args):
@@ -192,11 +191,11 @@ def main(args):
         logging.error(err)
         return
 
-
     try:
-        r.simple_submit()
-    except Exception as err:
-        logging.error(err)
+        r.student_report_submit()
+    except ReportException.SubmitError:
+        wait_a_minute("提交失败，将在 {} 秒后重试。", 1)
+        r.student_report_submit()
 
 
 if __name__ == '__main__':
