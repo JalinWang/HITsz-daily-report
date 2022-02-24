@@ -1,6 +1,6 @@
 # HITsz Daily Report
 
-基于 GitHub Actions 的「HITsz 疫情系统」<sup>[访问入口](http://xgsm.hitsz.edu.cn/zhxy-xgzs/xg_mobile/xs/yqxx)</sup> 定时自动上报脚本，开箱即用（适用于本硕）。
+基于 GitHub Actions 的「HITsz 疫情系统」<sup>[访问入口](https://student.hitsz.edu.cn/xg_mobile/loginChange)</sup> 定时自动上报脚本，开箱即用（适用于本硕）。
 
 感谢 [@JellyBeanXiewh](https://github.com/JellyBeanXiewh/) 提供原始脚本和 idea。  
 感谢 [@bugstop](https://github.com/bugstop/) 对脚本进行重构并新增 Easy Connect 校内代理访问。
@@ -22,7 +22,6 @@
    | :---: | :---: |
    | USERNAME | HITsz 统一身份认证用户名（学号） |
    | PASSWORD | HITsz 统一身份认证密码 |
-   | GRADUATING | 毕业班请设为 `1` ，非毕业班学生请留空（不设置） |
    | API_KEY | 微信推送的 `sckey` <sup>[如何申请？](http://sc.ftqq.com/?c=wechat&a=bind)</sup>，不需要请留空（不设置） |
 3. 开启 GitHub Actions <sup>[如何开启？](./how-to-enable-actions/#启用-Actions)</sup>
 4. 每天早上 7:00 <sup>23:00 UTC</sup> 定时自动运行  
@@ -32,3 +31,7 @@
 ## Change Log
 
 参阅 [Releases](https://github.com/JalinWang/HITsz-daily-report/releases) 列表。
+
+## 声明
+
+用户使用过程中输入的账户、密码等信息仅用做登陆认证凭据，脚本未对任何个人信息与登陆凭据进行非法留存、转发等操作，尽情放心使用。欢迎核查
