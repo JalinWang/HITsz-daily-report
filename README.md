@@ -4,6 +4,7 @@
 
 感谢 [@JellyBeanXiewh](https://github.com/JellyBeanXiewh/) 提供原始脚本和 idea。  
 感谢 [@bugstop](https://github.com/bugstop/) 对脚本进行重构并新增 Easy Connect 校内代理访问。
+感谢 [@chh13502](https://github.com/chh13502) 适配新学工系统。
 
 ## 免责声明
 
