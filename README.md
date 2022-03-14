@@ -29,6 +29,11 @@
    如果填写 `API_KEY` ，即可在微信上收到运行结果推送（由 [Server 酱](http://sc.ftqq.com/)提供）  
    或者你可以打开 GitHub Actions 执行的全局邮件通知 <sup>[如何开启？](./how-to-enable-actions/#设置邮件提醒)</sup>，包括成功或失败信息
 
+## 自动执行时间
+
+可以修改 ".github/workflows/python-app.yml" 的第6行来更改执行时间
+以防止时间大量学生提交时间过于类似
+
 ## Change Log
 
 参阅 [Releases](https://github.com/JalinWang/HITsz-daily-report/releases) 列表。
