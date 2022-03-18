@@ -154,6 +154,29 @@ class Report(object):
         data = result['module']['data'][0]
         info = {"model": {"dqzt":data["dqzt"],"gpsjd":data["gpsjd"],"gpswd":data["gpswd"],"kzl1":data["kzl1"],"kzl2":data["kzl2"],"kzl3":data["kzl3"],"kzl4":data["kzl4"],"kzl5":data["kzl5"],"kzl6":data["kzl6"],"kzl7":data["kzl7"],"kzl8":data["kzl8"],"kzl9":data["kzl9"],"kzl10":data["kzl10"],"kzl11":data["kzl11"],"kzl12":data["kzl12"],"kzl13":data["kzl13"],"kzl14":data["kzl14"],"kzl15":data["kzl15"],"kzl16":data["kzl16"],"kzl17":data["kzl17"],"kzl18":data["kzl18"],"kzl19":data["kzl19"],"kzl20":data["kzl20"],"kzl21":data["kzl21"],"kzl22":data["kzl22"],"kzl23":data["kzl23"],"kzl24":data["kzl24"],"kzl25":data["kzl25"],"kzl26":data["kzl26"],"kzl27":data["kzl27"],"kzl28":data["kzl28"],"kzl29":data["kzl29"],"kzl30":data["kzl30"],"kzl31":data["kzl31"],"kzl32":data["kzl32"],"kzl33":data["kzl33"],"kzl34":data["kzl34"],"kzl38":data["kzl38"],"kzl39":data["kzl39"],"kzl40":data["kzl40"]}}
         info |= {"token":self.token}
+
+        # 坑爹啊 https://student.hitsz.edu.cn/xg_mobile/xsMrsbNew/index L#1819 还有地址信息还需要附加到另外三参数上
+		    # gpsjd = obj.position.lng;
+		    # gpswd = obj.position.lat; 
+            # kzl6 = addComp.province;
+            # kzl7 = addComp.city;
+            # kzl8 = addComp.district; 
+            
+            # kzl38 = addComp.province;
+            # kzl39 = addComp.city;
+            # kzl40 = addComp.district; 
+            # kzl9 = addComp.street + addComp.streetNumber; 
+            # kzl10 = kzl6+kzl7+kzl8+kzl9;
+        loc_param_list = zip(["kzl6", "kzl7", "kzl8"], ["kzl38", "kzl39", "kzl40"])
+        for loc_param_new, loc_param in loc_param_list:
+            info["model"][loc_param_new] = info["model"][loc_param]
+        
+        if info["model"]["kzl6"] == "":
+            raise ReportException.SubmitError("地址获取失败！请手动上报！")
+        else:
+            print(f'Province:{info["model"]["kzl6"]}, City:{info["model"]["kzl7"]}, District:{info["model"]["kzl8"]}')
+            print(f'Location:{info["model"]["kzl10"]}')
+
         report_info = {'info': json.dumps(info)}
         
         url_save = self.urls['save']
